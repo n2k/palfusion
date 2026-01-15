@@ -1,0 +1,27 @@
+# Build artifacts
+*.o
+*.so
+*.a
+objs/
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# nginx build directory
+nginx-*/
+
+# Test output
+*.log
+core.*
+
+# Compiled modules
+ngx_http_cfml_module.so

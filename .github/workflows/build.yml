@@ -1,0 +1,171 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+
+env:
+  NGINX_VERSION: "1.26.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          libpcre3-dev \
+          libssl-dev \
+          zlib1g-dev \
+          libmysqlclient-dev \
+          libpq-dev
+
+    - name: Download nginx source
+      run: |
+        wget -q http://nginx.org/download/nginx-${{ env.NGINX_VERSION }}.tar.gz
+        tar xzf nginx-${{ env.NGINX_VERSION }}.tar.gz
+
+    - name: Build nginx with PALfusion (static)
+      run: |
+        cd nginx-${{ env.NGINX_VERSION }}
+        ./configure \
+          --prefix=/opt/nginx \
+          --add-module=${{ github.workspace }} \
+          --with-http_ssl_module \
+          --with-http_v2_module \
+          --with-http_realip_module \
+          --with-http_gzip_static_module
+        make -j$(nproc)
+        
+    - name: Build nginx with PALfusion (dynamic module)
+      run: |
+        cd nginx-${{ env.NGINX_VERSION }}
+        make clean
+        ./configure \
+          --prefix=/opt/nginx \
+          --add-dynamic-module=${{ github.workspace }} \
+          --with-http_ssl_module \
+          --with-compat
+        make modules -j$(nproc)
+
+    - name: Prepare release artifacts
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        mkdir -p release
+        
+        # Static build
+        cd nginx-${{ env.NGINX_VERSION }}
+        make clean
+        ./configure \
+          --prefix=/etc/nginx \
+          --sbin-path=/usr/sbin/nginx \
+          --modules-path=/usr/lib/nginx/modules \
+          --conf-path=/etc/nginx/nginx.conf \
+          --error-log-path=/var/log/nginx/error.log \
+          --http-log-path=/var/log/nginx/access.log \
+          --pid-path=/var/run/nginx.pid \
+          --lock-path=/var/run/nginx.lock \
+          --add-module=${{ github.workspace }} \
+          --with-http_ssl_module \
+          --with-http_v2_module \
+          --with-http_realip_module \
+          --with-http_gzip_static_module \
+          --with-threads \
+          --with-file-aio
+        make -j$(nproc)
+        
+        cp objs/nginx ../release/nginx-palfusion-linux-amd64
+        strip ../release/nginx-palfusion-linux-amd64
+        
+        # Dynamic module
+        make clean
+        ./configure \
+          --prefix=/etc/nginx \
+          --add-dynamic-module=${{ github.workspace }} \
+          --with-http_ssl_module \
+          --with-compat
+        make modules -j$(nproc)
+        
+        cp objs/ngx_http_cfml_module.so ../release/
+        strip ../release/ngx_http_cfml_module.so
+        
+        cd ../release
+        sha256sum * > SHA256SUMS
+        
+    - name: Upload build artifacts
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-artifact@v4
+      with:
+        name: palfusion-${{ github.ref_name }}-linux-amd64
+        path: release/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: palfusion-${{ github.ref_name }}-linux-amd64
+        path: release/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: PALfusion ${{ github.ref_name }}
+        body: |
+          ## PALfusion ${{ github.ref_name }}
+          
+          Native nginx module for CFML execution. Ships hard.
+          
+          ### Downloads
+          
+          | File | Description |
+          |------|-------------|
+          | `nginx-palfusion-linux-amd64` | Complete nginx binary with PALfusion compiled in |
+          | `ngx_http_cfml_module.so` | Dynamic module for existing nginx installations |
+          
+          ### Static Binary Usage
+          
+          ```bash
+          chmod +x nginx-palfusion-linux-amd64
+          ./nginx-palfusion-linux-amd64 -c /path/to/nginx.conf
+          ```
+          
+          ### Dynamic Module Usage
+          
+          Add to nginx.conf:
+          ```nginx
+          load_module modules/ngx_http_cfml_module.so;
+          ```
+          
+          ### Build from Source
+          
+          ```bash
+          wget http://nginx.org/download/nginx-1.26.0.tar.gz
+          tar xzf nginx-1.26.0.tar.gz
+          cd nginx-1.26.0
+          ./configure --add-module=/path/to/palfusion --with-http_ssl_module
+          make
+          sudo make install
+          ```
+          
+          ---
+          
+          The cursor is blinking. The coffee is cold. Ship something.
+        files: release/*
+        draft: false
+        prerelease: false

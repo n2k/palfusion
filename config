@@ -1,0 +1,137 @@
+ngx_addon_name=ngx_http_cfml_module
+
+# Initialize database flags
+CFML_MYSQL_LIBS=""
+CFML_MYSQL_CFLAGS=""
+CFML_PGSQL_LIBS=""
+CFML_PGSQL_CFLAGS=""
+
+# Check for MySQL using pkg-config first, then fallback
+if pkg-config --exists mysqlclient 2>/dev/null; then
+    CFML_MYSQL_LIBS="$(pkg-config --libs mysqlclient)"
+    CFML_MYSQL_CFLAGS="-DHAVE_MYSQL $(pkg-config --cflags mysqlclient)"
+    echo " + MySQL support enabled (pkg-config)"
+elif pkg-config --exists mariadb 2>/dev/null; then
+    CFML_MYSQL_LIBS="$(pkg-config --libs mariadb)"
+    CFML_MYSQL_CFLAGS="-DHAVE_MYSQL $(pkg-config --cflags mariadb)"
+    echo " + MySQL/MariaDB support enabled (pkg-config)"
+else
+    # Fallback to manual detection
+    ngx_feature="MySQL library"
+    ngx_feature_name="HAVE_MYSQL"
+    ngx_feature_run=no
+    ngx_feature_incs="#include <mysql/mysql.h>"
+    ngx_feature_path="/usr/include/mysql"
+    ngx_feature_libs="-lmysqlclient"
+    ngx_feature_test="mysql_init(NULL)"
+    . auto/feature
+    
+    if [ $ngx_found = yes ]; then
+        CFML_MYSQL_LIBS="-lmysqlclient"
+        CFML_MYSQL_CFLAGS="-DHAVE_MYSQL -I/usr/include/mysql"
+    fi
+fi
+
+# Check for PostgreSQL using pkg-config first, then fallback
+if pkg-config --exists libpq 2>/dev/null; then
+    CFML_PGSQL_LIBS="$(pkg-config --libs libpq)"
+    CFML_PGSQL_CFLAGS="-DHAVE_PGSQL $(pkg-config --cflags libpq)"
+    echo " + PostgreSQL support enabled (pkg-config)"
+else
+    # Fallback to manual detection
+    ngx_feature="PostgreSQL library"
+    ngx_feature_name="HAVE_PGSQL"
+    ngx_feature_run=no
+    ngx_feature_incs="#include <libpq-fe.h>"
+    ngx_feature_path="/usr/include/postgresql"
+    ngx_feature_libs="-lpq"
+    ngx_feature_test="PQconnectdb(NULL)"
+    . auto/feature
+    
+    if [ $ngx_found = yes ]; then
+        CFML_PGSQL_LIBS="-lpq"
+        CFML_PGSQL_CFLAGS="-DHAVE_PGSQL -I/usr/include/postgresql"
+    fi
+fi
+
+if test -n "$ngx_module_link"; then
+    ngx_module_type=HTTP
+    ngx_module_name=ngx_http_cfml_module
+    ngx_module_srcs="$ngx_addon_dir/ngx_http_cfml_module.c \
+                     $ngx_addon_dir/src/cfml_parser.c \
+                     $ngx_addon_dir/src/cfml_lexer.c \
+                     $ngx_addon_dir/src/cfml_tags.c \
+                     $ngx_addon_dir/src/cfml_functions.c \
+                     $ngx_addon_dir/src/cfml_variables.c \
+                     $ngx_addon_dir/src/cfml_expression.c \
+                     $ngx_addon_dir/src/cfml_runtime.c \
+                     $ngx_addon_dir/src/cfml_fastcgi.c \
+                     $ngx_addon_dir/src/cfml_cache.c \
+                     $ngx_addon_dir/src/cfml_session.c \
+                     $ngx_addon_dir/src/cfml_query.c \
+                     $ngx_addon_dir/src/cfml_component.c \
+                     $ngx_addon_dir/src/cfml_hash.c \
+                     $ngx_addon_dir/src/cfml_database.c \
+                     $ngx_addon_dir/src/cfml_shm.c \
+                     $ngx_addon_dir/src/cfml_cfscript.c"
+    ngx_module_deps="$ngx_addon_dir/src/cfml_parser.h \
+                     $ngx_addon_dir/src/cfml_lexer.h \
+                     $ngx_addon_dir/src/cfml_tags.h \
+                     $ngx_addon_dir/src/cfml_functions.h \
+                     $ngx_addon_dir/src/cfml_variables.h \
+                     $ngx_addon_dir/src/cfml_expression.h \
+                     $ngx_addon_dir/src/cfml_runtime.h \
+                     $ngx_addon_dir/src/cfml_fastcgi.h \
+                     $ngx_addon_dir/src/cfml_cache.h \
+                     $ngx_addon_dir/src/cfml_session.h \
+                     $ngx_addon_dir/src/cfml_query.h \
+                     $ngx_addon_dir/src/cfml_component.h \
+                     $ngx_addon_dir/src/cfml_hash.h \
+                     $ngx_addon_dir/src/cfml_types.h \
+                     $ngx_addon_dir/src/cfml_database.h \
+                     $ngx_addon_dir/src/cfml_shm.h \
+                     $ngx_addon_dir/src/cfml_cfscript.h"
+    ngx_module_libs="-lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS"
+    CFLAGS="$CFLAGS $CFML_MYSQL_CFLAGS $CFML_PGSQL_CFLAGS"
+    
+    . auto/module
+else
+    HTTP_MODULES="$HTTP_MODULES ngx_http_cfml_module"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
+                    $ngx_addon_dir/ngx_http_cfml_module.c \
+                    $ngx_addon_dir/src/cfml_parser.c \
+                    $ngx_addon_dir/src/cfml_lexer.c \
+                    $ngx_addon_dir/src/cfml_tags.c \
+                    $ngx_addon_dir/src/cfml_functions.c \
+                    $ngx_addon_dir/src/cfml_variables.c \
+                    $ngx_addon_dir/src/cfml_expression.c \
+                    $ngx_addon_dir/src/cfml_runtime.c \
+                    $ngx_addon_dir/src/cfml_fastcgi.c \
+                    $ngx_addon_dir/src/cfml_cache.c \
+                    $ngx_addon_dir/src/cfml_session.c \
+                    $ngx_addon_dir/src/cfml_query.c \
+                    $ngx_addon_dir/src/cfml_component.c \
+                    $ngx_addon_dir/src/cfml_hash.c \
+                    $ngx_addon_dir/src/cfml_database.c \
+                    $ngx_addon_dir/src/cfml_shm.c \
+                    $ngx_addon_dir/src/cfml_cfscript.c"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
+                    $ngx_addon_dir/src/cfml_parser.h \
+                    $ngx_addon_dir/src/cfml_lexer.h \
+                    $ngx_addon_dir/src/cfml_tags.h \
+                    $ngx_addon_dir/src/cfml_functions.h \
+                    $ngx_addon_dir/src/cfml_variables.h \
+                    $ngx_addon_dir/src/cfml_expression.h \
+                    $ngx_addon_dir/src/cfml_runtime.h \
+                    $ngx_addon_dir/src/cfml_fastcgi.h \
+                    $ngx_addon_dir/src/cfml_cache.h \
+                    $ngx_addon_dir/src/cfml_session.h \
+                    $ngx_addon_dir/src/cfml_query.h \
+                    $ngx_addon_dir/src/cfml_component.h \
+                    $ngx_addon_dir/src/cfml_hash.h \
+                    $ngx_addon_dir/src/cfml_types.h \
+                    $ngx_addon_dir/src/cfml_database.h \
+                    $ngx_addon_dir/src/cfml_shm.h \
+                    $ngx_addon_dir/src/cfml_cfscript.h"
+    CORE_LIBS="$CORE_LIBS -lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS"
+fi
