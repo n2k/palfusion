@@ -1012,13 +1012,7 @@ cfml_tag_silent(cfml_context_t *ctx, cfml_ast_node_t *node)
     return rc;
 }
 
-/* cfflush */
-ngx_int_t
-cfml_tag_flush(cfml_context_t *ctx, cfml_ast_node_t *node)
-{
-    /* Flush is a no-op in this implementation since we buffer everything */
-    return NGX_OK;
-}
+/* cfflush is implemented in cfml_sse.c */
 
 /* cfsetting */
 ngx_int_t

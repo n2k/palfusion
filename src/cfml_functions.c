@@ -13,6 +13,7 @@
 #include "cfml_json.h"
 #include "cfml_auth.h"
 #include "cfml_redis.h"
+#include "cfml_sse.h"
 
 /* Built-in function definitions */
 static cfml_builtin_def_t cfml_builtins[] = {
@@ -171,6 +172,11 @@ static cfml_builtin_def_t cfml_builtins[] = {
     { ngx_string("cacheget"), cfml_func_cacheget, 1, 1, ngx_string("Get from cache") },
     { ngx_string("cacheput"), cfml_func_cacheput, 2, 3, ngx_string("Put in cache") },
     { ngx_string("cacheremove"), cfml_func_cacheremove, 1, 1, ngx_string("Remove from cache") },
+    
+    /* SSE functions */
+    { ngx_string("sseinit"), cfml_func_sseinit, 0, 0, ngx_string("Init SSE stream") },
+    { ngx_string("ssesend"), cfml_func_ssesend, 1, 3, ngx_string("Send SSE event") },
+    { ngx_string("sseclose"), cfml_func_sseclose, 0, 0, ngx_string("Close SSE stream") },
     
     /* Other functions */
     { ngx_string("writeoutput"), cfml_func_writeoutput, 1, 1, ngx_string("Write output") },
