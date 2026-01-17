@@ -10,6 +10,14 @@
 #include "cfml_variables.h"
 #include "cfml_runtime.h"
 #include "cfml_hash.h"
+#include "cfml_json.h"
+#include "cfml_auth.h"
+#include "cfml_redis.h"
+#include "cfml_sse.h"
+#include "cfml_websocket.h"
+#include "cfml_msgpack.h"
+#include "cfml_s3.h"
+#include "cfml_otel.h"
 
 /* Built-in function definitions */
 static cfml_builtin_def_t cfml_builtins[] = {
@@ -136,10 +144,67 @@ static cfml_builtin_def_t cfml_builtins[] = {
     { ngx_string("htmleditformat"), cfml_func_htmleditformat, 1, 1, ngx_string("HTML encode") },
     { ngx_string("htmlcodeformat"), cfml_func_htmlcodeformat, 1, 1, ngx_string("HTML code format") },
     { ngx_string("jsstringformat"), cfml_func_jsstringformat, 1, 1, ngx_string("JS escape") },
-    { ngx_string("serializejson"), cfml_func_serializejson, 1, 1, ngx_string("Serialize JSON") },
-    { ngx_string("deserializejson"), cfml_func_deserializejson, 1, 1, ngx_string("Deserialize JSON") },
+    { ngx_string("serializejson"), cfml_func_serializejson, 1, 4, ngx_string("Serialize JSON") },
+    { ngx_string("deserializejson"), cfml_func_deserializejson, 1, 3, ngx_string("Deserialize JSON") },
+    { ngx_string("jsonparse"), cfml_func_jsonparse, 1, 1, ngx_string("Parse JSON") },
+    { ngx_string("jsonserialize"), cfml_func_jsonserialize, 1, 1, ngx_string("Serialize to JSON") },
     { ngx_string("hash"), cfml_func_hash, 1, 3, ngx_string("Hash string") },
     { ngx_string("tobase64"), cfml_func_tobase64, 1, 2, ngx_string("Base64 encode") },
+    
+    /* JWT/OAuth functions */
+    { ngx_string("jwtdecode"), cfml_func_jwtdecode, 1, 3, ngx_string("Decode JWT") },
+    { ngx_string("jwtencode"), cfml_func_jwtencode, 2, 3, ngx_string("Encode JWT") },
+    { ngx_string("jwtverify"), cfml_func_jwtverify, 2, 3, ngx_string("Verify JWT") },
+    { ngx_string("jwksfetch"), cfml_func_jwksfetch, 1, 1, ngx_string("Fetch JWKS") },
+    { ngx_string("oauth2authurl"), cfml_func_oauth2authurl, 3, 5, ngx_string("OAuth2 auth URL") },
+    { ngx_string("oauth2exchangecode"), cfml_func_oauth2exchangecode, 5, 5, ngx_string("OAuth2 exchange code") },
+    { ngx_string("oauth2refreshtoken"), cfml_func_oauth2refreshtoken, 4, 4, ngx_string("OAuth2 refresh token") },
+    
+    /* Redis functions */
+    { ngx_string("redisconnect"), cfml_func_redisconnect, 1, 4, ngx_string("Connect to Redis") },
+    { ngx_string("redisget"), cfml_func_redisget, 1, 1, ngx_string("Redis GET") },
+    { ngx_string("redisset"), cfml_func_redisset, 2, 3, ngx_string("Redis SET") },
+    { ngx_string("redisdel"), cfml_func_redisdel, 1, 1, ngx_string("Redis DEL") },
+    { ngx_string("redisexists"), cfml_func_redisexists, 1, 1, ngx_string("Redis EXISTS") },
+    { ngx_string("redisexpire"), cfml_func_redisexpire, 2, 2, ngx_string("Redis EXPIRE") },
+    { ngx_string("rediscommand"), cfml_func_rediscommand, 1, 10, ngx_string("Redis command") },
+    { ngx_string("redishset"), cfml_func_redishset, 3, 3, ngx_string("Redis HSET") },
+    { ngx_string("redishget"), cfml_func_redishget, 2, 2, ngx_string("Redis HGET") },
+    { ngx_string("redishgetall"), cfml_func_redishgetall, 1, 1, ngx_string("Redis HGETALL") },
+    
+    /* Cache API */
+    { ngx_string("cacheget"), cfml_func_cacheget, 1, 1, ngx_string("Get from cache") },
+    { ngx_string("cacheput"), cfml_func_cacheput, 2, 3, ngx_string("Put in cache") },
+    { ngx_string("cacheremove"), cfml_func_cacheremove, 1, 1, ngx_string("Remove from cache") },
+    
+    /* SSE functions */
+    { ngx_string("sseinit"), cfml_func_sseinit, 0, 0, ngx_string("Init SSE stream") },
+    { ngx_string("ssesend"), cfml_func_ssesend, 1, 3, ngx_string("Send SSE event") },
+    { ngx_string("sseclose"), cfml_func_sseclose, 0, 0, ngx_string("Close SSE stream") },
+    
+    /* WebSocket functions */
+    { ngx_string("wsaccept"), cfml_func_wsaccept, 0, 0, ngx_string("Accept WebSocket") },
+    { ngx_string("wssend"), cfml_func_wssend, 1, 2, ngx_string("Send WS message") },
+    { ngx_string("wsclose"), cfml_func_wsclose, 0, 2, ngx_string("Close WebSocket") },
+    { ngx_string("wsbroadcast"), cfml_func_wsbroadcast, 1, 1, ngx_string("Broadcast WS message") },
+    
+    /* MessagePack functions */
+    { ngx_string("msgpackencode"), cfml_func_msgpackencode, 1, 1, ngx_string("Encode MessagePack") },
+    { ngx_string("msgpackdecode"), cfml_func_msgpackdecode, 1, 1, ngx_string("Decode MessagePack") },
+    
+    /* S3 functions */
+    { ngx_string("s3put"), cfml_func_s3put, 2, 4, ngx_string("S3 PUT") },
+    { ngx_string("s3get"), cfml_func_s3get, 1, 2, ngx_string("S3 GET") },
+    { ngx_string("s3delete"), cfml_func_s3delete, 1, 2, ngx_string("S3 DELETE") },
+    { ngx_string("s3list"), cfml_func_s3list, 0, 3, ngx_string("S3 LIST") },
+    { ngx_string("s3presign"), cfml_func_s3presign, 1, 4, ngx_string("S3 presign URL") },
+    
+    /* OpenTelemetry functions */
+    { ngx_string("tracestart"), cfml_func_tracestart, 0, 2, ngx_string("Start trace span") },
+    { ngx_string("traceend"), cfml_func_traceend, 0, 2, ngx_string("End trace span") },
+    { ngx_string("traceset"), cfml_func_traceset, 2, 2, ngx_string("Set trace attribute") },
+    { ngx_string("traceevent"), cfml_func_traceevent, 1, 2, ngx_string("Add trace event") },
+    { ngx_string("traceconfig"), cfml_func_traceconfig, 1, 1, ngx_string("Configure OpenTelemetry") },
     
     /* Other functions */
     { ngx_string("writeoutput"), cfml_func_writeoutput, 1, 1, ngx_string("Write output") },
@@ -1067,16 +1132,7 @@ cfml_value_t *cfml_func_isempty(cfml_context_t *ctx, ngx_array_t *args) {
     return cfml_create_boolean(ctx->pool, 0);
 }
 
-cfml_value_t *cfml_func_isjson(cfml_context_t *ctx, ngx_array_t *args) {
-    /* Simplified - just check if string starts with { or [ */
-    cfml_value_t *val = get_arg(args, 0);
-    ngx_str_t str;
-    cfml_value_to_string(ctx, val, &str);
-    if (str.len > 0 && (str.data[0] == '{' || str.data[0] == '[')) {
-        return cfml_create_boolean(ctx->pool, 1);
-    }
-    return cfml_create_boolean(ctx->pool, 0);
-}
+/* isjson is implemented in cfml_json.c */
 
 /* Other functions */
 cfml_value_t *cfml_func_writeoutput(cfml_context_t *ctx, ngx_array_t *args) {
@@ -1173,8 +1229,7 @@ cfml_value_t *cfml_func_urldecode(cfml_context_t *ctx, ngx_array_t *args) { retu
 cfml_value_t *cfml_func_htmleditformat(cfml_context_t *ctx, ngx_array_t *args) { return get_arg(args, 0); }
 cfml_value_t *cfml_func_htmlcodeformat(cfml_context_t *ctx, ngx_array_t *args) { return get_arg(args, 0); }
 cfml_value_t *cfml_func_jsstringformat(cfml_context_t *ctx, ngx_array_t *args) { return get_arg(args, 0); }
-cfml_value_t *cfml_func_serializejson(cfml_context_t *ctx, ngx_array_t *args) { return cfml_create_string_cstr(ctx->pool, "{}"); }
-cfml_value_t *cfml_func_deserializejson(cfml_context_t *ctx, ngx_array_t *args) { return cfml_create_struct(ctx->pool); }
+/* JSON functions are implemented in cfml_json.c */
 cfml_value_t *cfml_func_hash(cfml_context_t *ctx, ngx_array_t *args) {
     cfml_value_t *val = get_arg(args, 0);
     ngx_str_t str, result;
