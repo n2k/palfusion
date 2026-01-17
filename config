@@ -78,7 +78,11 @@ if test -n "$ngx_module_link"; then
                      $ngx_addon_dir/src/cfml_http.c \
                      $ngx_addon_dir/src/cfml_auth.c \
                      $ngx_addon_dir/src/cfml_redis.c \
-                     $ngx_addon_dir/src/cfml_sse.c"
+                     $ngx_addon_dir/src/cfml_sse.c \
+                     $ngx_addon_dir/src/cfml_websocket.c \
+                     $ngx_addon_dir/src/cfml_msgpack.c \
+                     $ngx_addon_dir/src/cfml_s3.c \
+                     $ngx_addon_dir/src/cfml_otel.c"
     ngx_module_deps="$ngx_addon_dir/src/cfml_parser.h \
                      $ngx_addon_dir/src/cfml_lexer.h \
                      $ngx_addon_dir/src/cfml_tags.h \
@@ -100,7 +104,11 @@ if test -n "$ngx_module_link"; then
                      $ngx_addon_dir/src/cfml_http.h \
                      $ngx_addon_dir/src/cfml_auth.h \
                      $ngx_addon_dir/src/cfml_redis.h \
-                     $ngx_addon_dir/src/cfml_sse.h"
+                     $ngx_addon_dir/src/cfml_sse.h \
+                     $ngx_addon_dir/src/cfml_websocket.h \
+                     $ngx_addon_dir/src/cfml_msgpack.h \
+                     $ngx_addon_dir/src/cfml_s3.h \
+                     $ngx_addon_dir/src/cfml_otel.h"
     ngx_module_libs="-lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS"
     CFLAGS="$CFLAGS $CFML_MYSQL_CFLAGS $CFML_PGSQL_CFLAGS"
     
@@ -129,7 +137,11 @@ else
                     $ngx_addon_dir/src/cfml_http.c \
                     $ngx_addon_dir/src/cfml_auth.c \
                     $ngx_addon_dir/src/cfml_redis.c \
-                    $ngx_addon_dir/src/cfml_sse.c"
+                    $ngx_addon_dir/src/cfml_sse.c \
+                    $ngx_addon_dir/src/cfml_websocket.c \
+                    $ngx_addon_dir/src/cfml_msgpack.c \
+                    $ngx_addon_dir/src/cfml_s3.c \
+                    $ngx_addon_dir/src/cfml_otel.c"
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
                     $ngx_addon_dir/src/cfml_parser.h \
                     $ngx_addon_dir/src/cfml_lexer.h \
@@ -152,6 +164,10 @@ else
                     $ngx_addon_dir/src/cfml_http.h \
                     $ngx_addon_dir/src/cfml_auth.h \
                     $ngx_addon_dir/src/cfml_redis.h \
-                    $ngx_addon_dir/src/cfml_sse.h"
+                    $ngx_addon_dir/src/cfml_sse.h \
+                    $ngx_addon_dir/src/cfml_websocket.h \
+                    $ngx_addon_dir/src/cfml_msgpack.h \
+                    $ngx_addon_dir/src/cfml_s3.h \
+                    $ngx_addon_dir/src/cfml_otel.h"
     CORE_LIBS="$CORE_LIBS -lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS"
 fi

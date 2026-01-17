@@ -14,6 +14,10 @@
 #include "cfml_auth.h"
 #include "cfml_redis.h"
 #include "cfml_sse.h"
+#include "cfml_websocket.h"
+#include "cfml_msgpack.h"
+#include "cfml_s3.h"
+#include "cfml_otel.h"
 
 /* Built-in function definitions */
 static cfml_builtin_def_t cfml_builtins[] = {
@@ -177,6 +181,28 @@ static cfml_builtin_def_t cfml_builtins[] = {
     { ngx_string("sseinit"), cfml_func_sseinit, 0, 0, ngx_string("Init SSE stream") },
     { ngx_string("ssesend"), cfml_func_ssesend, 1, 3, ngx_string("Send SSE event") },
     { ngx_string("sseclose"), cfml_func_sseclose, 0, 0, ngx_string("Close SSE stream") },
+    
+    /* WebSocket functions */
+    { ngx_string("wsaccept"), cfml_func_wsaccept, 0, 0, ngx_string("Accept WebSocket") },
+    { ngx_string("wssend"), cfml_func_wssend, 1, 2, ngx_string("Send WS message") },
+    { ngx_string("wsclose"), cfml_func_wsclose, 0, 2, ngx_string("Close WebSocket") },
+    
+    /* MessagePack functions */
+    { ngx_string("msgpackencode"), cfml_func_msgpackencode, 1, 1, ngx_string("Encode MessagePack") },
+    { ngx_string("msgpackdecode"), cfml_func_msgpackdecode, 1, 1, ngx_string("Decode MessagePack") },
+    
+    /* S3 functions */
+    { ngx_string("s3put"), cfml_func_s3put, 2, 4, ngx_string("S3 PUT") },
+    { ngx_string("s3get"), cfml_func_s3get, 1, 2, ngx_string("S3 GET") },
+    { ngx_string("s3delete"), cfml_func_s3delete, 1, 2, ngx_string("S3 DELETE") },
+    { ngx_string("s3list"), cfml_func_s3list, 0, 3, ngx_string("S3 LIST") },
+    { ngx_string("s3presign"), cfml_func_s3presign, 1, 4, ngx_string("S3 presign URL") },
+    
+    /* OpenTelemetry functions */
+    { ngx_string("tracestart"), cfml_func_tracestart, 0, 1, ngx_string("Start trace span") },
+    { ngx_string("traceend"), cfml_func_traceend, 0, 0, ngx_string("End trace span") },
+    { ngx_string("traceset"), cfml_func_traceset, 2, 2, ngx_string("Set trace attribute") },
+    { ngx_string("traceevent"), cfml_func_traceevent, 1, 2, ngx_string("Add trace event") },
     
     /* Other functions */
     { ngx_string("writeoutput"), cfml_func_writeoutput, 1, 1, ngx_string("Write output") },
