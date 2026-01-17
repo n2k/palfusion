@@ -11,6 +11,7 @@
 #include "cfml_runtime.h"
 #include "cfml_hash.h"
 #include "cfml_json.h"
+#include "cfml_auth.h"
 
 /* Built-in function definitions */
 static cfml_builtin_def_t cfml_builtins[] = {
@@ -143,6 +144,15 @@ static cfml_builtin_def_t cfml_builtins[] = {
     { ngx_string("jsonserialize"), cfml_func_jsonserialize, 1, 1, ngx_string("Serialize to JSON") },
     { ngx_string("hash"), cfml_func_hash, 1, 3, ngx_string("Hash string") },
     { ngx_string("tobase64"), cfml_func_tobase64, 1, 2, ngx_string("Base64 encode") },
+    
+    /* JWT/OAuth functions */
+    { ngx_string("jwtdecode"), cfml_func_jwtdecode, 1, 3, ngx_string("Decode JWT") },
+    { ngx_string("jwtencode"), cfml_func_jwtencode, 2, 3, ngx_string("Encode JWT") },
+    { ngx_string("jwtverify"), cfml_func_jwtverify, 2, 3, ngx_string("Verify JWT") },
+    { ngx_string("jwksfetch"), cfml_func_jwksfetch, 1, 1, ngx_string("Fetch JWKS") },
+    { ngx_string("oauth2authurl"), cfml_func_oauth2authurl, 3, 5, ngx_string("OAuth2 auth URL") },
+    { ngx_string("oauth2exchangecode"), cfml_func_oauth2exchangecode, 5, 5, ngx_string("OAuth2 exchange code") },
+    { ngx_string("oauth2refreshtoken"), cfml_func_oauth2refreshtoken, 4, 4, ngx_string("OAuth2 refresh token") },
     
     /* Other functions */
     { ngx_string("writeoutput"), cfml_func_writeoutput, 1, 1, ngx_string("Write output") },
