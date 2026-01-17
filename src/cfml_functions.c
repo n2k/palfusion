@@ -12,6 +12,7 @@
 #include "cfml_hash.h"
 #include "cfml_json.h"
 #include "cfml_auth.h"
+#include "cfml_redis.h"
 
 /* Built-in function definitions */
 static cfml_builtin_def_t cfml_builtins[] = {
@@ -153,6 +154,23 @@ static cfml_builtin_def_t cfml_builtins[] = {
     { ngx_string("oauth2authurl"), cfml_func_oauth2authurl, 3, 5, ngx_string("OAuth2 auth URL") },
     { ngx_string("oauth2exchangecode"), cfml_func_oauth2exchangecode, 5, 5, ngx_string("OAuth2 exchange code") },
     { ngx_string("oauth2refreshtoken"), cfml_func_oauth2refreshtoken, 4, 4, ngx_string("OAuth2 refresh token") },
+    
+    /* Redis functions */
+    { ngx_string("redisconnect"), cfml_func_redisconnect, 1, 4, ngx_string("Connect to Redis") },
+    { ngx_string("redisget"), cfml_func_redisget, 1, 1, ngx_string("Redis GET") },
+    { ngx_string("redisset"), cfml_func_redisset, 2, 3, ngx_string("Redis SET") },
+    { ngx_string("redisdel"), cfml_func_redisdel, 1, 1, ngx_string("Redis DEL") },
+    { ngx_string("redisexists"), cfml_func_redisexists, 1, 1, ngx_string("Redis EXISTS") },
+    { ngx_string("redisexpire"), cfml_func_redisexpire, 2, 2, ngx_string("Redis EXPIRE") },
+    { ngx_string("rediscommand"), cfml_func_rediscommand, 1, 10, ngx_string("Redis command") },
+    { ngx_string("redishset"), cfml_func_redishset, 3, 3, ngx_string("Redis HSET") },
+    { ngx_string("redishget"), cfml_func_redishget, 2, 2, ngx_string("Redis HGET") },
+    { ngx_string("redishgetall"), cfml_func_redishgetall, 1, 1, ngx_string("Redis HGETALL") },
+    
+    /* Cache API */
+    { ngx_string("cacheget"), cfml_func_cacheget, 1, 1, ngx_string("Get from cache") },
+    { ngx_string("cacheput"), cfml_func_cacheput, 2, 3, ngx_string("Put in cache") },
+    { ngx_string("cacheremove"), cfml_func_cacheremove, 1, 1, ngx_string("Remove from cache") },
     
     /* Other functions */
     { ngx_string("writeoutput"), cfml_func_writeoutput, 1, 1, ngx_string("Write output") },
