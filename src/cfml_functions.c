@@ -10,6 +10,7 @@
 #include "cfml_variables.h"
 #include "cfml_runtime.h"
 #include "cfml_hash.h"
+#include "cfml_json.h"
 
 /* Built-in function definitions */
 static cfml_builtin_def_t cfml_builtins[] = {
@@ -136,8 +137,10 @@ static cfml_builtin_def_t cfml_builtins[] = {
     { ngx_string("htmleditformat"), cfml_func_htmleditformat, 1, 1, ngx_string("HTML encode") },
     { ngx_string("htmlcodeformat"), cfml_func_htmlcodeformat, 1, 1, ngx_string("HTML code format") },
     { ngx_string("jsstringformat"), cfml_func_jsstringformat, 1, 1, ngx_string("JS escape") },
-    { ngx_string("serializejson"), cfml_func_serializejson, 1, 1, ngx_string("Serialize JSON") },
-    { ngx_string("deserializejson"), cfml_func_deserializejson, 1, 1, ngx_string("Deserialize JSON") },
+    { ngx_string("serializejson"), cfml_func_serializejson, 1, 4, ngx_string("Serialize JSON") },
+    { ngx_string("deserializejson"), cfml_func_deserializejson, 1, 3, ngx_string("Deserialize JSON") },
+    { ngx_string("jsonparse"), cfml_func_jsonparse, 1, 1, ngx_string("Parse JSON") },
+    { ngx_string("jsonserialize"), cfml_func_jsonserialize, 1, 1, ngx_string("Serialize to JSON") },
     { ngx_string("hash"), cfml_func_hash, 1, 3, ngx_string("Hash string") },
     { ngx_string("tobase64"), cfml_func_tobase64, 1, 2, ngx_string("Base64 encode") },
     
@@ -1067,16 +1070,7 @@ cfml_value_t *cfml_func_isempty(cfml_context_t *ctx, ngx_array_t *args) {
     return cfml_create_boolean(ctx->pool, 0);
 }
 
-cfml_value_t *cfml_func_isjson(cfml_context_t *ctx, ngx_array_t *args) {
-    /* Simplified - just check if string starts with { or [ */
-    cfml_value_t *val = get_arg(args, 0);
-    ngx_str_t str;
-    cfml_value_to_string(ctx, val, &str);
-    if (str.len > 0 && (str.data[0] == '{' || str.data[0] == '[')) {
-        return cfml_create_boolean(ctx->pool, 1);
-    }
-    return cfml_create_boolean(ctx->pool, 0);
-}
+/* isjson is implemented in cfml_json.c */
 
 /* Other functions */
 cfml_value_t *cfml_func_writeoutput(cfml_context_t *ctx, ngx_array_t *args) {
@@ -1173,8 +1167,7 @@ cfml_value_t *cfml_func_urldecode(cfml_context_t *ctx, ngx_array_t *args) { retu
 cfml_value_t *cfml_func_htmleditformat(cfml_context_t *ctx, ngx_array_t *args) { return get_arg(args, 0); }
 cfml_value_t *cfml_func_htmlcodeformat(cfml_context_t *ctx, ngx_array_t *args) { return get_arg(args, 0); }
 cfml_value_t *cfml_func_jsstringformat(cfml_context_t *ctx, ngx_array_t *args) { return get_arg(args, 0); }
-cfml_value_t *cfml_func_serializejson(cfml_context_t *ctx, ngx_array_t *args) { return cfml_create_string_cstr(ctx->pool, "{}"); }
-cfml_value_t *cfml_func_deserializejson(cfml_context_t *ctx, ngx_array_t *args) { return cfml_create_struct(ctx->pool); }
+/* JSON functions are implemented in cfml_json.c */
 cfml_value_t *cfml_func_hash(cfml_context_t *ctx, ngx_array_t *args) {
     cfml_value_t *val = get_arg(args, 0);
     ngx_str_t str, result;

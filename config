@@ -73,7 +73,8 @@ if test -n "$ngx_module_link"; then
                      $ngx_addon_dir/src/cfml_hash.c \
                      $ngx_addon_dir/src/cfml_database.c \
                      $ngx_addon_dir/src/cfml_shm.c \
-                     $ngx_addon_dir/src/cfml_cfscript.c"
+                     $ngx_addon_dir/src/cfml_cfscript.c \
+                     $ngx_addon_dir/src/cfml_json.c"
     ngx_module_deps="$ngx_addon_dir/src/cfml_parser.h \
                      $ngx_addon_dir/src/cfml_lexer.h \
                      $ngx_addon_dir/src/cfml_tags.h \
@@ -90,7 +91,8 @@ if test -n "$ngx_module_link"; then
                      $ngx_addon_dir/src/cfml_types.h \
                      $ngx_addon_dir/src/cfml_database.h \
                      $ngx_addon_dir/src/cfml_shm.h \
-                     $ngx_addon_dir/src/cfml_cfscript.h"
+                     $ngx_addon_dir/src/cfml_cfscript.h \
+                     $ngx_addon_dir/src/cfml_json.h"
     ngx_module_libs="-lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS"
     CFLAGS="$CFLAGS $CFML_MYSQL_CFLAGS $CFML_PGSQL_CFLAGS"
     
@@ -114,7 +116,8 @@ else
                     $ngx_addon_dir/src/cfml_hash.c \
                     $ngx_addon_dir/src/cfml_database.c \
                     $ngx_addon_dir/src/cfml_shm.c \
-                    $ngx_addon_dir/src/cfml_cfscript.c"
+                    $ngx_addon_dir/src/cfml_cfscript.c \
+                    $ngx_addon_dir/src/cfml_json.c"
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
                     $ngx_addon_dir/src/cfml_parser.h \
                     $ngx_addon_dir/src/cfml_lexer.h \
@@ -132,6 +135,7 @@ else
                     $ngx_addon_dir/src/cfml_types.h \
                     $ngx_addon_dir/src/cfml_database.h \
                     $ngx_addon_dir/src/cfml_shm.h \
-                    $ngx_addon_dir/src/cfml_cfscript.h"
+                    $ngx_addon_dir/src/cfml_cfscript.h \
+                    $ngx_addon_dir/src/cfml_json.h"
     CORE_LIBS="$CORE_LIBS -lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS"
 fi
