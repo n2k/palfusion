@@ -31,28 +31,50 @@ typedef struct {
     u_char              trace_id[32];   /* 16 bytes hex encoded */
     u_char              span_id[16];    /* 8 bytes hex encoded */
     u_char              trace_flags;
+    ngx_str_t           trace_state;    /* W3C tracestate header */
+    unsigned            valid:1;
 } cfml_otel_context_t;
 
 /* Span */
-typedef struct {
+typedef struct cfml_otel_span_s cfml_otel_span_t;
+struct cfml_otel_span_s {
     ngx_str_t               name;
     cfml_otel_context_t     context;
     cfml_otel_context_t     parent;
+    u_char                  parent_span_id[16];
     cfml_otel_span_kind_t   kind;
     cfml_otel_status_t      status;
     ngx_str_t               status_message;
     ngx_msec_t              start_time;
     ngx_msec_t              end_time;
+    uint64_t                start_time_unix;    /* Nanoseconds since epoch */
+    uint64_t                end_time_unix;
     cfml_struct_t           *attributes;
     ngx_array_t             *events;
+    cfml_otel_span_t        *prev_span;         /* For span stack */
     ngx_pool_t              *pool;
-} cfml_otel_span_t;
+};
+
+/* OTLP protocol */
+typedef enum {
+    OTEL_PROTO_UNSET = 0,
+    OTEL_PROTO_HTTP,
+    OTEL_PROTO_GRPC
+} cfml_otel_protocol_t;
+
+/* Span event */
+typedef struct {
+    ngx_str_t               name;
+    uint64_t                timestamp;
+    cfml_struct_t           *attributes;
+} cfml_otel_event_t;
 
 /* Configuration */
 typedef struct {
     ngx_str_t               service_name;
     ngx_str_t               endpoint;       /* OTLP endpoint */
     ngx_str_t               headers;        /* Additional headers */
+    cfml_otel_protocol_t    protocol;       /* HTTP or gRPC */
     unsigned                enabled:1;
 } cfml_otel_config_t;
 
@@ -84,10 +106,14 @@ ngx_int_t cfml_otel_span_set_status(cfml_otel_span_t *span,
 /* End span */
 ngx_int_t cfml_otel_span_end(cfml_otel_span_t *span);
 
+/* Get current span */
+cfml_otel_span_t *cfml_otel_get_current_span(void);
+
 /* CFML functions */
 cfml_value_t *cfml_func_tracestart(cfml_context_t *ctx, ngx_array_t *args);
 cfml_value_t *cfml_func_traceend(cfml_context_t *ctx, ngx_array_t *args);
 cfml_value_t *cfml_func_traceset(cfml_context_t *ctx, ngx_array_t *args);
 cfml_value_t *cfml_func_traceevent(cfml_context_t *ctx, ngx_array_t *args);
+cfml_value_t *cfml_func_traceconfig(cfml_context_t *ctx, ngx_array_t *args);
 
 #endif /* _CFML_OTEL_H_ */

@@ -26,17 +26,33 @@ typedef struct {
     unsigned            fin:1;
     unsigned            masked:1;
     u_char              mask[4];
+    size_t              payload_len;
     ngx_str_t           payload;
 } cfml_ws_frame_t;
 
+/* Message callback types */
+typedef struct cfml_ws_conn_s cfml_ws_conn_t;
+typedef void (*cfml_ws_message_handler)(cfml_ws_conn_t *conn, ngx_str_t *data, ngx_int_t binary);
+typedef void (*cfml_ws_close_handler)(cfml_ws_conn_t *conn, uint16_t code, ngx_str_t *reason);
+
 /* WebSocket connection */
-typedef struct {
-    ngx_pool_t          *pool;
-    ngx_connection_t    *connection;
-    unsigned            handshake_complete:1;
-    unsigned            closing:1;
-    ngx_str_t           protocol;
-} cfml_ws_conn_t;
+struct cfml_ws_conn_s {
+    ngx_pool_t                  *pool;
+    ngx_connection_t            *connection;
+    ngx_http_request_t          *request;
+    ngx_buf_t                   *recv_buf;
+    ngx_chain_t                 *send_chain;
+    cfml_ws_frame_t             frame;
+    time_t                      last_ping;
+    time_t                      last_pong;
+    cfml_ws_message_handler     on_message;
+    cfml_ws_close_handler       on_close;
+    void                        *user_data;
+    unsigned                    handshake_complete:1;
+    unsigned                    closing:1;
+    unsigned                    close_sent:1;
+    ngx_str_t                   protocol;
+};
 
 /* Check if request is WebSocket upgrade */
 ngx_int_t cfml_ws_is_upgrade_request(ngx_http_request_t *r);
@@ -62,9 +78,19 @@ ngx_int_t cfml_ws_pong(cfml_ws_conn_t *conn, ngx_str_t *data);
 /* Close connection */
 ngx_int_t cfml_ws_close(cfml_ws_conn_t *conn, uint16_t code, ngx_str_t *reason);
 
+/* Send JSON value */
+ngx_int_t cfml_ws_send_json(cfml_ws_conn_t *conn, cfml_value_t *value);
+
+/* Broadcast to all connections */
+ngx_int_t cfml_ws_broadcast(ngx_str_t *data, cfml_ws_opcode_t opcode);
+
+/* Get connection count */
+ngx_uint_t cfml_ws_connection_count(void);
+
 /* CFML functions */
 cfml_value_t *cfml_func_wsaccept(cfml_context_t *ctx, ngx_array_t *args);
 cfml_value_t *cfml_func_wssend(cfml_context_t *ctx, ngx_array_t *args);
 cfml_value_t *cfml_func_wsclose(cfml_context_t *ctx, ngx_array_t *args);
+cfml_value_t *cfml_func_wsbroadcast(cfml_context_t *ctx, ngx_array_t *args);
 
 #endif /* _CFML_WEBSOCKET_H_ */

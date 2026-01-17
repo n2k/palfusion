@@ -186,6 +186,7 @@ static cfml_builtin_def_t cfml_builtins[] = {
     { ngx_string("wsaccept"), cfml_func_wsaccept, 0, 0, ngx_string("Accept WebSocket") },
     { ngx_string("wssend"), cfml_func_wssend, 1, 2, ngx_string("Send WS message") },
     { ngx_string("wsclose"), cfml_func_wsclose, 0, 2, ngx_string("Close WebSocket") },
+    { ngx_string("wsbroadcast"), cfml_func_wsbroadcast, 1, 1, ngx_string("Broadcast WS message") },
     
     /* MessagePack functions */
     { ngx_string("msgpackencode"), cfml_func_msgpackencode, 1, 1, ngx_string("Encode MessagePack") },
@@ -199,10 +200,11 @@ static cfml_builtin_def_t cfml_builtins[] = {
     { ngx_string("s3presign"), cfml_func_s3presign, 1, 4, ngx_string("S3 presign URL") },
     
     /* OpenTelemetry functions */
-    { ngx_string("tracestart"), cfml_func_tracestart, 0, 1, ngx_string("Start trace span") },
-    { ngx_string("traceend"), cfml_func_traceend, 0, 0, ngx_string("End trace span") },
+    { ngx_string("tracestart"), cfml_func_tracestart, 0, 2, ngx_string("Start trace span") },
+    { ngx_string("traceend"), cfml_func_traceend, 0, 2, ngx_string("End trace span") },
     { ngx_string("traceset"), cfml_func_traceset, 2, 2, ngx_string("Set trace attribute") },
     { ngx_string("traceevent"), cfml_func_traceevent, 1, 2, ngx_string("Add trace event") },
+    { ngx_string("traceconfig"), cfml_func_traceconfig, 1, 1, ngx_string("Configure OpenTelemetry") },
     
     /* Other functions */
     { ngx_string("writeoutput"), cfml_func_writeoutput, 1, 1, ngx_string("Write output") },
