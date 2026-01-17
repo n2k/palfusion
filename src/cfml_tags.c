@@ -1060,8 +1060,7 @@ ngx_int_t cfml_tag_storedproc(cfml_context_t *ctx, cfml_ast_node_t *node) { retu
 ngx_int_t cfml_tag_procparam(cfml_context_t *ctx, cfml_ast_node_t *node) { return NGX_OK; }
 ngx_int_t cfml_tag_procresult(cfml_context_t *ctx, cfml_ast_node_t *node) { return NGX_OK; }
 ngx_int_t cfml_tag_transaction(cfml_context_t *ctx, cfml_ast_node_t *node) { return NGX_OK; }
-ngx_int_t cfml_tag_http(cfml_context_t *ctx, cfml_ast_node_t *node) { return NGX_OK; }
-ngx_int_t cfml_tag_httpparam(cfml_context_t *ctx, cfml_ast_node_t *node) { return NGX_OK; }
+/* cfhttp tag is implemented in cfml_http.c */
 ngx_int_t cfml_tag_switch(cfml_context_t *ctx, cfml_ast_node_t *node) { return NGX_OK; }
 ngx_int_t cfml_tag_case(cfml_context_t *ctx, cfml_ast_node_t *node) { return NGX_OK; }
 ngx_int_t cfml_tag_defaultcase(cfml_context_t *ctx, cfml_ast_node_t *node) { return NGX_OK; }
