@@ -1,5 +1,5 @@
 /*
- * CFML Database - MySQL and PostgreSQL native connectivity
+ * CFML Database - MySQL, PostgreSQL, and SQLite native connectivity
  */
 
 #include <ngx_config.h>
@@ -13,6 +13,10 @@
 
 #ifdef HAVE_PGSQL
 #include <libpq-fe.h>
+#endif
+
+#ifdef HAVE_SQLITE
+#include <sqlite3.h>
 #endif
 
 /* Global database pools */
@@ -42,6 +46,13 @@ cfml_database_init(ngx_cycle_t *cycle)
                       "cfml: PostgreSQL initialization failed");
     }
 #endif
+
+#ifdef HAVE_SQLITE
+    if (cfml_sqlite_init() != NGX_OK) {
+        ngx_log_error(NGX_LOG_WARN, cycle->log, 0,
+                      "cfml: SQLite initialization failed");
+    }
+#endif
     
     return NGX_OK;
 }
@@ -49,12 +60,18 @@ cfml_database_init(ngx_cycle_t *cycle)
 void
 cfml_database_cleanup(ngx_cycle_t *cycle)
 {
+    (void)cycle;
+    
 #ifdef HAVE_MYSQL
     cfml_mysql_cleanup();
 #endif
 
 #ifdef HAVE_PGSQL
     cfml_pgsql_cleanup();
+#endif
+
+#ifdef HAVE_SQLITE
+    cfml_sqlite_cleanup();
 #endif
 }
 
@@ -67,6 +84,24 @@ cfml_db_parse_driver(ngx_str_t *connection_string)
     if (ngx_strncasecmp(connection_string->data, (u_char *)"postgresql://", 13) == 0 ||
         ngx_strncasecmp(connection_string->data, (u_char *)"postgres://", 11) == 0) {
         return CFML_DB_POSTGRESQL;
+    }
+    if (ngx_strncasecmp(connection_string->data, (u_char *)"sqlite://", 9) == 0 ||
+        ngx_strncasecmp(connection_string->data, (u_char *)"sqlite3://", 10) == 0 ||
+        ngx_strncasecmp(connection_string->data, (u_char *)"file:", 5) == 0) {
+        return CFML_DB_SQLITE;
+    }
+    /* Also check for .db or .sqlite file extension */
+    if (connection_string->len > 3) {
+        u_char *ext = connection_string->data + connection_string->len - 3;
+        if (ngx_strncasecmp(ext, (u_char *)".db", 3) == 0) {
+            return CFML_DB_SQLITE;
+        }
+        if (connection_string->len > 7) {
+            ext = connection_string->data + connection_string->len - 7;
+            if (ngx_strncasecmp(ext, (u_char *)".sqlite", 7) == 0) {
+                return CFML_DB_SQLITE;
+            }
+        }
     }
     return CFML_DB_UNKNOWN;
 }
@@ -91,6 +126,10 @@ cfml_db_parse_connection_string(ngx_pool_t *pool, ngx_str_t *conn_str,
                ngx_strncasecmp(start, (u_char *)"postgres", 8) == 0) {
         conn->driver = CFML_DB_POSTGRESQL;
         conn->port = 5432;
+    } else if (ngx_strncasecmp(start, (u_char *)"sqlite", 6) == 0 ||
+               ngx_strncasecmp(start, (u_char *)"file", 4) == 0) {
+        conn->driver = CFML_DB_SQLITE;
+        conn->port = 0;
     } else {
         return NGX_ERROR;
     }
@@ -278,6 +317,14 @@ cfml_db_get_connection(cfml_context_t *ctx, ngx_str_t *datasource)
 #endif
             break;
             
+        case CFML_DB_SQLITE:
+#ifdef HAVE_SQLITE
+            conn = cfml_sqlite_connect(ctx->pool, &conn->database);
+#else
+            return NULL;
+#endif
+            break;
+            
         default:
             return NULL;
         }
@@ -332,6 +379,12 @@ cfml_db_close_connection(cfml_db_connection_t *conn)
 #endif
         break;
         
+    case CFML_DB_SQLITE:
+#ifdef HAVE_SQLITE
+        return cfml_sqlite_disconnect(conn);
+#endif
+        break;
+        
     default:
         break;
     }
@@ -357,6 +410,12 @@ cfml_db_ping_connection(cfml_db_connection_t *conn)
     case CFML_DB_POSTGRESQL:
 #ifdef HAVE_PGSQL
         return cfml_pgsql_ping(conn);
+#endif
+        break;
+        
+    case CFML_DB_SQLITE:
+#ifdef HAVE_SQLITE
+        return cfml_sqlite_ping(conn);
 #endif
         break;
         
@@ -400,6 +459,15 @@ cfml_db_execute(cfml_context_t *ctx, cfml_db_connection_t *conn,
 #else
         result->success = 0;
         ngx_str_set(&result->error, "PostgreSQL support not compiled");
+        return result;
+#endif
+        
+    case CFML_DB_SQLITE:
+#ifdef HAVE_SQLITE
+        return cfml_sqlite_query(ctx, conn, sql, params);
+#else
+        result->success = 0;
+        ngx_str_set(&result->error, "SQLite support not compiled");
         return result;
 #endif
         
@@ -469,6 +537,18 @@ cfml_db_begin_transaction(cfml_db_connection_t *conn)
 #endif
         break;
         
+    case CFML_DB_SQLITE:
+#ifdef HAVE_SQLITE
+        {
+            ngx_str_t sql = ngx_string("BEGIN TRANSACTION");
+            if (cfml_sqlite_exec(conn, &sql) == NGX_OK) {
+                conn->in_transaction = 1;
+                return NGX_OK;
+            }
+        }
+#endif
+        break;
+        
     default:
         break;
     }
@@ -507,6 +587,18 @@ cfml_db_commit(cfml_db_connection_t *conn)
 #endif
         break;
         
+    case CFML_DB_SQLITE:
+#ifdef HAVE_SQLITE
+        {
+            ngx_str_t sql = ngx_string("COMMIT");
+            if (cfml_sqlite_exec(conn, &sql) == NGX_OK) {
+                conn->in_transaction = 0;
+                return NGX_OK;
+            }
+        }
+#endif
+        break;
+        
     default:
         break;
     }
@@ -541,6 +633,18 @@ cfml_db_rollback(cfml_db_connection_t *conn)
                 return NGX_OK;
             }
             PQclear(res);
+        }
+#endif
+        break;
+        
+    case CFML_DB_SQLITE:
+#ifdef HAVE_SQLITE
+        {
+            ngx_str_t sql = ngx_string("ROLLBACK");
+            if (cfml_sqlite_exec(conn, &sql) == NGX_OK) {
+                conn->in_transaction = 0;
+                return NGX_OK;
+            }
         }
 #endif
         break;
@@ -971,3 +1075,373 @@ ngx_int_t cfml_pgsql_escape_string(ngx_pool_t *pool, cfml_db_connection_t *conn,
     ngx_str_t *input, ngx_str_t *output) { return NGX_ERROR; }
 
 #endif /* HAVE_PGSQL */
+
+/* ===== SQLite Implementation ===== */
+
+#ifdef HAVE_SQLITE
+
+ngx_int_t
+cfml_sqlite_init(void)
+{
+    /* SQLite is self-contained, no global init needed */
+    return NGX_OK;
+}
+
+void
+cfml_sqlite_cleanup(void)
+{
+    sqlite3_shutdown();
+}
+
+cfml_db_connection_t *
+cfml_sqlite_connect(ngx_pool_t *pool, ngx_str_t *database)
+{
+    cfml_db_connection_t *conn;
+    sqlite3 *db;
+    u_char *db_path;
+    int rc;
+    
+    conn = ngx_pcalloc(pool, sizeof(cfml_db_connection_t));
+    if (conn == NULL) {
+        return NULL;
+    }
+    
+    /* Null-terminate the database path */
+    db_path = ngx_pnalloc(pool, database->len + 1);
+    if (db_path == NULL) {
+        return NULL;
+    }
+    ngx_memcpy(db_path, database->data, database->len);
+    db_path[database->len] = '\0';
+    
+    /* Handle special paths */
+    if (ngx_strncmp(db_path, "sqlite://", 9) == 0) {
+        db_path += 9;
+    } else if (ngx_strncmp(db_path, "sqlite3://", 10) == 0) {
+        db_path += 10;
+    }
+    
+    /* Support :memory: for in-memory databases */
+    rc = sqlite3_open((char *)db_path, &db);
+    if (rc != SQLITE_OK) {
+        if (db) sqlite3_close(db);
+        return NULL;
+    }
+    
+    /* Enable foreign keys */
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON", NULL, NULL, NULL);
+    
+    /* Set UTF-8 encoding */
+    sqlite3_exec(db, "PRAGMA encoding = 'UTF-8'", NULL, NULL, NULL);
+    
+    /* WAL mode for better concurrency */
+    sqlite3_exec(db, "PRAGMA journal_mode = WAL", NULL, NULL, NULL);
+    
+    /* Busy timeout of 5 seconds */
+    sqlite3_busy_timeout(db, 5000);
+    
+    conn->driver = CFML_DB_SQLITE;
+    conn->sqlite_conn = db;
+    conn->state = CFML_DB_CONN_OPEN;
+    conn->pool = pool;
+    conn->database = *database;
+    
+    return conn;
+}
+
+ngx_int_t
+cfml_sqlite_disconnect(cfml_db_connection_t *conn)
+{
+    if (conn == NULL || conn->sqlite_conn == NULL) {
+        return NGX_ERROR;
+    }
+    
+    sqlite3_close((sqlite3 *)conn->sqlite_conn);
+    conn->sqlite_conn = NULL;
+    conn->state = CFML_DB_CONN_CLOSED;
+    
+    return NGX_OK;
+}
+
+ngx_int_t
+cfml_sqlite_ping(cfml_db_connection_t *conn)
+{
+    sqlite3 *db;
+    sqlite3_stmt *stmt;
+    int rc;
+    
+    if (conn == NULL || conn->sqlite_conn == NULL) {
+        return NGX_ERROR;
+    }
+    
+    db = (sqlite3 *)conn->sqlite_conn;
+    
+    rc = sqlite3_prepare_v2(db, "SELECT 1", -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        return NGX_ERROR;
+    }
+    
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    
+    return (rc == SQLITE_ROW || rc == SQLITE_DONE) ? NGX_OK : NGX_ERROR;
+}
+
+ngx_int_t
+cfml_sqlite_exec(cfml_db_connection_t *conn, ngx_str_t *sql)
+{
+    sqlite3 *db;
+    char *err_msg = NULL;
+    u_char *sql_str;
+    int rc;
+    
+    if (conn == NULL || conn->sqlite_conn == NULL) {
+        return NGX_ERROR;
+    }
+    
+    db = (sqlite3 *)conn->sqlite_conn;
+    
+    /* Null-terminate SQL */
+    sql_str = ngx_pnalloc(conn->pool, sql->len + 1);
+    if (sql_str == NULL) {
+        return NGX_ERROR;
+    }
+    ngx_memcpy(sql_str, sql->data, sql->len);
+    sql_str[sql->len] = '\0';
+    
+    rc = sqlite3_exec(db, (char *)sql_str, NULL, NULL, &err_msg);
+    
+    if (err_msg) {
+        sqlite3_free(err_msg);
+    }
+    
+    return (rc == SQLITE_OK) ? NGX_OK : NGX_ERROR;
+}
+
+int64_t
+cfml_sqlite_last_insert_id(cfml_db_connection_t *conn)
+{
+    if (conn == NULL || conn->sqlite_conn == NULL) {
+        return 0;
+    }
+    
+    return sqlite3_last_insert_rowid((sqlite3 *)conn->sqlite_conn);
+}
+
+ngx_int_t
+cfml_sqlite_changes(cfml_db_connection_t *conn)
+{
+    if (conn == NULL || conn->sqlite_conn == NULL) {
+        return 0;
+    }
+    
+    return sqlite3_changes((sqlite3 *)conn->sqlite_conn);
+}
+
+cfml_db_result_t *
+cfml_sqlite_query(cfml_context_t *ctx, cfml_db_connection_t *conn,
+                   ngx_str_t *sql, ngx_array_t *params)
+{
+    cfml_db_result_t *result;
+    sqlite3 *db;
+    sqlite3_stmt *stmt;
+    int rc, col_count, col_type;
+    int i;
+    u_char *sql_str;
+    ngx_str_t col_name;
+    cfml_value_t *cell;
+    
+    (void)params;  /* TODO: implement parameter binding */
+    
+    result = ngx_pcalloc(ctx->pool, sizeof(cfml_db_result_t));
+    if (result == NULL) {
+        return NULL;
+    }
+    
+    db = (sqlite3 *)conn->sqlite_conn;
+    
+    /* Null-terminate SQL */
+    sql_str = ngx_pnalloc(ctx->pool, sql->len + 1);
+    if (sql_str == NULL) {
+        result->success = 0;
+        ngx_str_set(&result->error, "Memory allocation failed");
+        return result;
+    }
+    ngx_memcpy(sql_str, sql->data, sql->len);
+    sql_str[sql->len] = '\0';
+    
+    rc = sqlite3_prepare_v2(db, (char *)sql_str, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        result->success = 0;
+        result->error.data = (u_char *)sqlite3_errmsg(db);
+        result->error.len = ngx_strlen(result->error.data);
+        return result;
+    }
+    
+    col_count = sqlite3_column_count(stmt);
+    
+    /* If no columns, this is an INSERT/UPDATE/DELETE */
+    if (col_count == 0) {
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+        
+        result->success = (rc == SQLITE_DONE);
+        result->affected_rows = sqlite3_changes(db);
+        result->insert_id = sqlite3_last_insert_rowid(db);
+        
+        if (!result->success) {
+            result->error.data = (u_char *)sqlite3_errmsg(db);
+            result->error.len = ngx_strlen(result->error.data);
+        }
+        
+        return result;
+    }
+    
+    /* Create query result for SELECT */
+    result->query = cfml_query_new(ctx->pool);
+    if (result->query == NULL) {
+        sqlite3_finalize(stmt);
+        result->success = 0;
+        ngx_str_set(&result->error, "Failed to create query result");
+        return result;
+    }
+    
+    /* Add columns */
+    for (i = 0; i < col_count; i++) {
+        const char *name = sqlite3_column_name(stmt, i);
+        col_name.data = (u_char *)name;
+        col_name.len = ngx_strlen(name);
+        cfml_query_add_column(result->query, &col_name, CFML_TYPE_STRING);
+    }
+    
+    /* Fetch rows */
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        cfml_query_add_row(result->query);
+        
+        for (i = 0; i < col_count; i++) {
+            const char *name = sqlite3_column_name(stmt, i);
+            col_name.data = (u_char *)name;
+            col_name.len = ngx_strlen(name);
+            
+            col_type = sqlite3_column_type(stmt, i);
+            
+            switch (col_type) {
+            case SQLITE_NULL:
+                cell = cfml_create_null(ctx->pool);
+                break;
+                
+            case SQLITE_INTEGER:
+                cell = cfml_create_integer(ctx->pool, sqlite3_column_int64(stmt, i));
+                break;
+                
+            case SQLITE_FLOAT:
+                cell = cfml_create_float(ctx->pool, sqlite3_column_double(stmt, i));
+                break;
+                
+            case SQLITE_BLOB:
+                {
+                    const void *blob = sqlite3_column_blob(stmt, i);
+                    int blob_len = sqlite3_column_bytes(stmt, i);
+                    cell = cfml_create_binary(ctx->pool, (u_char *)blob, blob_len);
+                }
+                break;
+                
+            case SQLITE_TEXT:
+            default:
+                {
+                    const unsigned char *text = sqlite3_column_text(stmt, i);
+                    ngx_str_t str;
+                    str.data = (u_char *)text;
+                    str.len = ngx_strlen(text);
+                    cell = cfml_create_string(ctx->pool, &str);
+                }
+                break;
+            }
+            
+            cfml_query_set_cell(result->query, &col_name,
+                                result->query->row_count, cell);
+        }
+    }
+    
+    sqlite3_finalize(stmt);
+    
+    if (rc != SQLITE_DONE) {
+        result->success = 0;
+        result->error.data = (u_char *)sqlite3_errmsg(db);
+        result->error.len = ngx_strlen(result->error.data);
+        return result;
+    }
+    
+    result->success = 1;
+    result->affected_rows = result->query->row_count;
+    
+    return result;
+}
+
+ngx_int_t
+cfml_sqlite_escape_string(ngx_pool_t *pool, ngx_str_t *input, ngx_str_t *output)
+{
+    u_char *src, *dst, *end;
+    size_t len;
+    
+    /* Count escaped length */
+    len = 0;
+    src = input->data;
+    end = input->data + input->len;
+    
+    while (src < end) {
+        if (*src == '\'') {
+            len += 2;  /* ' -> '' */
+        } else {
+            len++;
+        }
+        src++;
+    }
+    
+    output->data = ngx_pnalloc(pool, len + 1);
+    if (output->data == NULL) {
+        return NGX_ERROR;
+    }
+    
+    src = input->data;
+    dst = output->data;
+    
+    while (src < end) {
+        if (*src == '\'') {
+            *dst++ = '\'';
+            *dst++ = '\'';
+        } else {
+            *dst++ = *src;
+        }
+        src++;
+    }
+    
+    *dst = '\0';
+    output->len = len;
+    
+    return NGX_OK;
+}
+
+#else /* !HAVE_SQLITE */
+
+ngx_int_t cfml_sqlite_init(void) { return NGX_OK; }
+void cfml_sqlite_cleanup(void) { }
+cfml_db_connection_t *cfml_sqlite_connect(ngx_pool_t *pool, ngx_str_t *database)
+    { (void)pool; (void)database; return NULL; }
+ngx_int_t cfml_sqlite_disconnect(cfml_db_connection_t *conn)
+    { (void)conn; return NGX_ERROR; }
+ngx_int_t cfml_sqlite_ping(cfml_db_connection_t *conn)
+    { (void)conn; return NGX_ERROR; }
+cfml_db_result_t *cfml_sqlite_query(cfml_context_t *ctx, cfml_db_connection_t *conn,
+    ngx_str_t *sql, ngx_array_t *params)
+    { (void)ctx; (void)conn; (void)sql; (void)params; return NULL; }
+ngx_int_t cfml_sqlite_escape_string(ngx_pool_t *pool, ngx_str_t *input, ngx_str_t *output)
+    { (void)pool; (void)input; (void)output; return NGX_ERROR; }
+ngx_int_t cfml_sqlite_exec(cfml_db_connection_t *conn, ngx_str_t *sql)
+    { (void)conn; (void)sql; return NGX_ERROR; }
+int64_t cfml_sqlite_last_insert_id(cfml_db_connection_t *conn)
+    { (void)conn; return 0; }
+ngx_int_t cfml_sqlite_changes(cfml_db_connection_t *conn)
+    { (void)conn; return 0; }
+
+#endif /* HAVE_SQLITE */

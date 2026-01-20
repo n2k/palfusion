@@ -86,8 +86,9 @@ sudo make install
 - OpenSSL (because security matters)
 - libmysqlclient (optional, for MySQL)
 - libpq (optional, for PostgreSQL)
+- libsqlite3 (optional, for SQLite)
 
-That's four dependencies. Count them. Four. The node_modules of your TanStack Start project has more dependencies in its dependency tree for parsing a single JSON file.
+That's five dependencies. Count them. Five. The node_modules of your TanStack Start project has more dependencies in its dependency tree for parsing a single JSON file.
 
 ---
 
@@ -103,6 +104,7 @@ http {
     # Database connections (yes, real databases, not Firebase)
     cfml_datasource maindb "mysql://user:pass@localhost:3306/myapp";
     cfml_datasource analytics "postgresql://user:pass@localhost:5432/metrics";
+    cfml_datasource local "sqlite:///var/data/app.db";
     
     server {
         listen 80;
@@ -169,7 +171,7 @@ Sessions that actually persist across nginx workers using ngx_slab shared memory
 
 ### Native Database Connectivity
 
-MySQL and PostgreSQL, compiled in, running at C speed:
+MySQL, PostgreSQL, and SQLite - compiled in, running at C speed:
 
 ```cfm
 <cfquery name="users" datasource="maindb">

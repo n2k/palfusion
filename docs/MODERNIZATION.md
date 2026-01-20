@@ -159,7 +159,65 @@ Every API needs auth. Most implementations are wrong. PALfusion does it right.
 
 ### Redis/Valkey - Because Shared Memory Has Limits
 
-nginx shared memory is great until you need to scale past one server. Redis is the answer. Valkey is the open-source answer.
+nginx shared memory is great until you need to scale past one server. Redis is the answer. But sometimes you don't need to scale - you need embedded. That's SQLite.
+
+---
+
+### SQLite - The Database That Ships With Your App
+
+No server. No configuration. No DBA. Just a file.
+
+```cfm
+<!--- Connect to SQLite database --->
+<cfset application.datasource = "sqlite:///var/data/myapp.db">
+
+<!--- Or use :memory: for blazing fast temp storage --->
+<cfset tempDS = "sqlite://:memory:">
+
+<!--- Same cfquery you already know --->
+<cfquery name="users" datasource="#application.datasource#">
+    SELECT * FROM users WHERE active = 1
+</cfquery>
+
+<!--- Transactions work exactly as expected --->
+<cftransaction>
+    <cfquery datasource="#application.datasource#">
+        INSERT INTO logs (message, created) VALUES ('Event', datetime('now'))
+    </cfquery>
+    <cfquery datasource="#application.datasource#">
+        UPDATE counters SET value = value + 1 WHERE name = 'events'
+    </cfquery>
+</cftransaction>
+```
+
+**What's Implemented:**
+- Full SQLite3 C API integration
+- WAL mode for better concurrency
+- Foreign keys enabled by default
+- UTF-8 encoding
+- 5 second busy timeout for lock contention
+- Proper type mapping: INTEGER, FLOAT, TEXT, BLOB, NULL
+- In-memory databases (`:memory:`) for temp storage
+- Transactions: BEGIN, COMMIT, ROLLBACK
+
+**Connection Strings:**
+```
+sqlite:///path/to/database.db    # File path
+sqlite://:memory:                 # In-memory
+file:/path/to/database.db        # Alternative syntax
+/path/to/file.db                 # Just the path works too
+```
+
+**Why SQLite:**
+- Zero configuration
+- Single file = easy backup
+- Handles more traffic than you think (SQLite can do 100k+ reads/sec)
+- Perfect for: edge deployments, embedded apps, development, caching
+- Used by: Every iPhone, every Android, Firefox, Chrome, Skype, iTunes
+
+---
+
+### Redis/Valkey - State That Scales Valkey is the open-source answer.
 
 ```cfm
 <!--- Connect --->
