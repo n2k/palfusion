@@ -27,7 +27,8 @@ jobs:
           libssl-dev \
           zlib1g-dev \
           libmysqlclient-dev \
-          libpq-dev
+          libpq-dev \
+          libsqlite3-dev
 
     - name: Download nginx source
       run: |

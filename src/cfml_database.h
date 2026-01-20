@@ -1,5 +1,5 @@
 /*
- * CFML Database - MySQL and PostgreSQL native connectivity
+ * CFML Database - MySQL, PostgreSQL, and SQLite native connectivity
  */
 
 #ifndef _CFML_DATABASE_H_
@@ -13,6 +13,7 @@
 typedef enum {
     CFML_DB_MYSQL = 0,
     CFML_DB_POSTGRESQL,
+    CFML_DB_SQLITE,
     CFML_DB_UNKNOWN
 } cfml_db_driver_t;
 
@@ -40,6 +41,7 @@ typedef struct {
     /* Driver-specific handles */
     void                    *mysql_conn;      /* MYSQL* */
     void                    *pg_conn;         /* PGconn* */
+    void                    *sqlite_conn;     /* sqlite3* */
     
     /* Connection pool management */
     ngx_queue_t             queue;
@@ -164,6 +166,24 @@ ngx_int_t cfml_pgsql_escape_string(ngx_pool_t *pool,
                                     ngx_str_t *input,
                                     ngx_str_t *output);
 ngx_int_t cfml_pgsql_ping(cfml_db_connection_t *conn);
+
+/* SQLite-specific functions */
+ngx_int_t cfml_sqlite_init(void);
+void cfml_sqlite_cleanup(void);
+cfml_db_connection_t *cfml_sqlite_connect(ngx_pool_t *pool,
+                                           ngx_str_t *database);
+ngx_int_t cfml_sqlite_disconnect(cfml_db_connection_t *conn);
+cfml_db_result_t *cfml_sqlite_query(cfml_context_t *ctx,
+                                     cfml_db_connection_t *conn,
+                                     ngx_str_t *sql,
+                                     ngx_array_t *params);
+ngx_int_t cfml_sqlite_escape_string(ngx_pool_t *pool,
+                                     ngx_str_t *input,
+                                     ngx_str_t *output);
+ngx_int_t cfml_sqlite_ping(cfml_db_connection_t *conn);
+ngx_int_t cfml_sqlite_exec(cfml_db_connection_t *conn, ngx_str_t *sql);
+int64_t cfml_sqlite_last_insert_id(cfml_db_connection_t *conn);
+ngx_int_t cfml_sqlite_changes(cfml_db_connection_t *conn);
 
 /* Utility functions */
 cfml_db_driver_t cfml_db_parse_driver(ngx_str_t *connection_string);

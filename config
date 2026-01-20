@@ -5,6 +5,8 @@ CFML_MYSQL_LIBS=""
 CFML_MYSQL_CFLAGS=""
 CFML_PGSQL_LIBS=""
 CFML_PGSQL_CFLAGS=""
+CFML_SQLITE_LIBS=""
+CFML_SQLITE_CFLAGS=""
 
 # Check for MySQL using pkg-config first, then fallback
 if pkg-config --exists mysqlclient 2>/dev/null; then
@@ -54,6 +56,28 @@ else
     fi
 fi
 
+# Check for SQLite using pkg-config first, then fallback
+if pkg-config --exists sqlite3 2>/dev/null; then
+    CFML_SQLITE_LIBS="$(pkg-config --libs sqlite3)"
+    CFML_SQLITE_CFLAGS="-DHAVE_SQLITE $(pkg-config --cflags sqlite3)"
+    echo " + SQLite support enabled (pkg-config)"
+else
+    # Fallback to manual detection
+    ngx_feature="SQLite library"
+    ngx_feature_name="HAVE_SQLITE"
+    ngx_feature_run=no
+    ngx_feature_incs="#include <sqlite3.h>"
+    ngx_feature_path=""
+    ngx_feature_libs="-lsqlite3"
+    ngx_feature_test="sqlite3_open(NULL, NULL)"
+    . auto/feature
+    
+    if [ $ngx_found = yes ]; then
+        CFML_SQLITE_LIBS="-lsqlite3"
+        CFML_SQLITE_CFLAGS="-DHAVE_SQLITE"
+    fi
+fi
+
 if test -n "$ngx_module_link"; then
     ngx_module_type=HTTP
     ngx_module_name=ngx_http_cfml_module
@@ -73,7 +97,16 @@ if test -n "$ngx_module_link"; then
                      $ngx_addon_dir/src/cfml_hash.c \
                      $ngx_addon_dir/src/cfml_database.c \
                      $ngx_addon_dir/src/cfml_shm.c \
-                     $ngx_addon_dir/src/cfml_cfscript.c"
+                     $ngx_addon_dir/src/cfml_cfscript.c \
+                     $ngx_addon_dir/src/cfml_json.c \
+                     $ngx_addon_dir/src/cfml_http.c \
+                     $ngx_addon_dir/src/cfml_auth.c \
+                     $ngx_addon_dir/src/cfml_redis.c \
+                     $ngx_addon_dir/src/cfml_sse.c \
+                     $ngx_addon_dir/src/cfml_websocket.c \
+                     $ngx_addon_dir/src/cfml_msgpack.c \
+                     $ngx_addon_dir/src/cfml_s3.c \
+                     $ngx_addon_dir/src/cfml_otel.c"
     ngx_module_deps="$ngx_addon_dir/src/cfml_parser.h \
                      $ngx_addon_dir/src/cfml_lexer.h \
                      $ngx_addon_dir/src/cfml_tags.h \
@@ -90,9 +123,18 @@ if test -n "$ngx_module_link"; then
                      $ngx_addon_dir/src/cfml_types.h \
                      $ngx_addon_dir/src/cfml_database.h \
                      $ngx_addon_dir/src/cfml_shm.h \
-                     $ngx_addon_dir/src/cfml_cfscript.h"
-    ngx_module_libs="-lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS"
-    CFLAGS="$CFLAGS $CFML_MYSQL_CFLAGS $CFML_PGSQL_CFLAGS"
+                     $ngx_addon_dir/src/cfml_cfscript.h \
+                     $ngx_addon_dir/src/cfml_json.h \
+                     $ngx_addon_dir/src/cfml_http.h \
+                     $ngx_addon_dir/src/cfml_auth.h \
+                     $ngx_addon_dir/src/cfml_redis.h \
+                     $ngx_addon_dir/src/cfml_sse.h \
+                     $ngx_addon_dir/src/cfml_websocket.h \
+                     $ngx_addon_dir/src/cfml_msgpack.h \
+                     $ngx_addon_dir/src/cfml_s3.h \
+                     $ngx_addon_dir/src/cfml_otel.h"
+    ngx_module_libs="-lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS $CFML_SQLITE_LIBS"
+    CFLAGS="$CFLAGS $CFML_MYSQL_CFLAGS $CFML_PGSQL_CFLAGS $CFML_SQLITE_CFLAGS"
     
     . auto/module
 else
@@ -114,7 +156,16 @@ else
                     $ngx_addon_dir/src/cfml_hash.c \
                     $ngx_addon_dir/src/cfml_database.c \
                     $ngx_addon_dir/src/cfml_shm.c \
-                    $ngx_addon_dir/src/cfml_cfscript.c"
+                    $ngx_addon_dir/src/cfml_cfscript.c \
+                    $ngx_addon_dir/src/cfml_json.c \
+                    $ngx_addon_dir/src/cfml_http.c \
+                    $ngx_addon_dir/src/cfml_auth.c \
+                    $ngx_addon_dir/src/cfml_redis.c \
+                    $ngx_addon_dir/src/cfml_sse.c \
+                    $ngx_addon_dir/src/cfml_websocket.c \
+                    $ngx_addon_dir/src/cfml_msgpack.c \
+                    $ngx_addon_dir/src/cfml_s3.c \
+                    $ngx_addon_dir/src/cfml_otel.c"
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
                     $ngx_addon_dir/src/cfml_parser.h \
                     $ngx_addon_dir/src/cfml_lexer.h \
@@ -132,6 +183,16 @@ else
                     $ngx_addon_dir/src/cfml_types.h \
                     $ngx_addon_dir/src/cfml_database.h \
                     $ngx_addon_dir/src/cfml_shm.h \
-                    $ngx_addon_dir/src/cfml_cfscript.h"
-    CORE_LIBS="$CORE_LIBS -lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS"
+                    $ngx_addon_dir/src/cfml_cfscript.h \
+                    $ngx_addon_dir/src/cfml_json.h \
+                    $ngx_addon_dir/src/cfml_http.h \
+                    $ngx_addon_dir/src/cfml_auth.h \
+                    $ngx_addon_dir/src/cfml_redis.h \
+                    $ngx_addon_dir/src/cfml_sse.h \
+                    $ngx_addon_dir/src/cfml_websocket.h \
+                    $ngx_addon_dir/src/cfml_msgpack.h \
+                    $ngx_addon_dir/src/cfml_s3.h \
+                    $ngx_addon_dir/src/cfml_otel.h"
+    CORE_LIBS="$CORE_LIBS -lpcre -lssl -lcrypto -lm $CFML_MYSQL_LIBS $CFML_PGSQL_LIBS $CFML_SQLITE_LIBS"
+    CFLAGS="$CFLAGS $CFML_MYSQL_CFLAGS $CFML_PGSQL_CFLAGS $CFML_SQLITE_CFLAGS"
 fi
